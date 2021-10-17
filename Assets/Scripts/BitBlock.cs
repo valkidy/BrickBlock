@@ -100,33 +100,42 @@ public struct BitBlock
  */
 public struct BitCube
 {
-    Vector3Int size; /* width, height, depth */
-    int[] points;
     static int[] cubeCorners = new int[8];
+
+    int sizeX;
+    int sizeY;
+    int sizeZ;
+    int[] rawData;
+    
+    public int Length => sizeX * sizeY * sizeZ;
+    public (int, int, int) Size => (sizeX, sizeY, sizeZ);
 
     public BitCube(int width, int height, int depth)
     {
-        points = new int[width * height * depth];
-        size = new Vector3Int(width, height, depth);
+        sizeX = width;
+        sizeY = height;
+        sizeZ = depth;
+
+        rawData = new int[width * height * depth];        
     }
 
     int indexFromCoord(int x, int y, int z)
     {
-        return z + size.z * (x + size.x * y);
+        return z + sizeZ * (x + sizeX * y);
     }
 
     public int CalculateIsoSurface(Vector3Int id, int isoLevel = 1)
     {
         Array.Clear(cubeCorners, 0, 8);
 
-        if (id.x < size.x && id.y < size.y && id.z < size.z) cubeCorners[0] = points[indexFromCoord(id.x, id.y, id.z)];
-        if (id.x > 0 && id.y < size.y && id.z < size.z) cubeCorners[1] = points[indexFromCoord(id.x - 1, id.y, id.z)];
-        if (id.x > 0 && id.y < size.y && id.z > 0) cubeCorners[2] = points[indexFromCoord(id.x - 1, id.y, id.z - 1)];
-        if (id.x < size.x && id.y < size.y && id.z > 0) cubeCorners[3] = points[indexFromCoord(id.x, id.y, id.z - 1)];
-        if (id.x < size.x && id.y > 0 && id.z < size.z) cubeCorners[4] = points[indexFromCoord(id.x, id.y - 1, id.z)];
-        if (id.x > 0 && id.y > 0 && id.z < size.z) cubeCorners[5] = points[indexFromCoord(id.x - 1, id.y - 1, id.z)];
-        if (id.x > 0 && id.y > 0 && id.z > 0) cubeCorners[6] = points[indexFromCoord(id.x - 1, id.y - 1, id.z - 1)];
-        if (id.x < size.x && id.y > 0 && id.z > 0) cubeCorners[7] = points[indexFromCoord(id.x, id.y - 1, id.z - 1)];
+        if (id.x < sizeX && id.y < sizeY && id.z < sizeZ) cubeCorners[0] = rawData[indexFromCoord(id.x, id.y, id.z)];
+        if (id.x > 0 && id.y < sizeY && id.z < sizeZ) cubeCorners[1] = rawData[indexFromCoord(id.x - 1, id.y, id.z)];
+        if (id.x > 0 && id.y < sizeY && id.z > 0) cubeCorners[2] = rawData[indexFromCoord(id.x - 1, id.y, id.z - 1)];
+        if (id.x < sizeX && id.y < sizeY && id.z > 0) cubeCorners[3] = rawData[indexFromCoord(id.x, id.y, id.z - 1)];
+        if (id.x < sizeX && id.y > 0 && id.z < sizeZ) cubeCorners[4] = rawData[indexFromCoord(id.x, id.y - 1, id.z)];
+        if (id.x > 0 && id.y > 0 && id.z < sizeZ) cubeCorners[5] = rawData[indexFromCoord(id.x - 1, id.y - 1, id.z)];
+        if (id.x > 0 && id.y > 0 && id.z > 0) cubeCorners[6] = rawData[indexFromCoord(id.x - 1, id.y - 1, id.z - 1)];
+        if (id.x < sizeX && id.y > 0 && id.z > 0) cubeCorners[7] = rawData[indexFromCoord(id.x, id.y - 1, id.z - 1)];
         
         int cubeIndex = 0;
         for (int it = 0; it < 8; ++it)
@@ -138,13 +147,13 @@ public struct BitCube
 
     public int this[Vector3Int id]
     {
-        get => points[indexFromCoord(id.x, id.y, id.z)];
-        set => points[indexFromCoord(id.x, id.y, id.z)] = value;
+        get => rawData[indexFromCoord(id.x, id.y, id.z)];
+        set => rawData[indexFromCoord(id.x, id.y, id.z)] = value;
     }
 
     public int this[int i, int j, int k]
     {
-        get => points[indexFromCoord(i, j, k)];
-        set => points[indexFromCoord(i, j, k)] = value;
+        get => rawData[indexFromCoord(i, j, k)];
+        set => rawData[indexFromCoord(i, j, k)] = value;
     }
 }

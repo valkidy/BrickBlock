@@ -3,27 +3,33 @@ using System.Collections.Generic;
 using UnityEngine;
 using Helper;
 using System.Linq;
+using System;
 
 public class BitBlockBuilder : MonoBehaviour
 {
-    [SerializeField] [Range(3, 20)] int width = 3;
-    [SerializeField] [Range(3, 20)] int height = 5;
-    [SerializeField] [Range(3, 20)] int depth = 3;
-
+    [SerializeField] [Range(3, 20)] int blockWidth = 3;
+    [SerializeField] [Range(3, 20)] int blockHeight = 5;
+    [SerializeField] [Range(3, 20)] int blockDepth = 3;
     [SerializeField] GameObject blockSets = null;
+    /// TODO : replace the way to resize the block cell
     [SerializeField] GameObject blockCell = null;
+    
+    public delegate void OnSizeChangeDelegate(int width, int height, int depth);    
+    public delegate void OnCellChangeDelegate(int id, int bitValue);
+    public delegate void OnDataChangeDelegate(int width, int height, int depth, in BitCube points);
+    public delegate void OnRefreshDelegate();
+
+    public event OnSizeChangeDelegate onSizeChange;
+    public event OnCellChangeDelegate onCellChange;
+    public event OnDataChangeDelegate onDataChange;
+    public event OnRefreshDelegate onRefresh;
 
     #region property
 
-    public (int, int, int) Size => (width, height, depth);    
-    public int this[Vector3Int id]
-    {
-        set => points[id] = value;
-        get => points[id];
-    }
-    public void OnReCreate() => ReCreate();
-    public int indexFromCoord(int x, int y, int z) => z + depth * (x + width * y);
-    public int childIndexFromCoord(int x, int y, int z) => z + (depth + 1) * (x + (width + 1) * y);
+    internal int width, height, depth;
+  
+    int indexFromCoord(int x, int y, int z) => z + depth * (x + width * y);
+    int childIndexFromCoord(int x, int y, int z) => z + (depth + 1) * (x + (width + 1) * y);
 
     #endregion
 
@@ -44,51 +50,65 @@ public class BitBlockBuilder : MonoBehaviour
 
     void Start()
     {
+        // cache root transform name
         objectName = this.name;
 
-        points = new BitCube(width, height, depth);
-
-        foreach (var id in EnumerableHelper.ForEachIntEnumerable(width, height, depth))
-        {
-            points[id] = (id.y != 0 && UnityEngine.Random.Range(0, 1000) < 500) ? 0 : 1;
-        }
-
+        // cache basic mesh sets
         foreach (Transform child in blockSets.transform)
         {
             meshes.Add(child.name, child.GetComponent<MeshFilter>().sharedMesh);
         }
 
-        foreach (var id in EnumerableHelper.ForEachIntEnumerable(width + 1, height + 1, depth + 1))
-        {
-            var newObj = Instantiate(blockCell);
-            newObj.transform.position = new Vector3(id.x, id.y - 1/* yPos*/, id.z);
-            newObj.transform.parent = this.transform;
-            newObj.gameObject.SetActive(false);
-        }
+        onSizeChange += OnBlockSizeChange;
+        // onCellChange += OnBlockCellChange;
+        onRefresh += OnBlockCellRefresh;
 
         ReCreate();
     }
 
-    void Update()
+    void OnDestroy()
     {
-        if (Input.GetKeyUp(KeyCode.V))
-        {
-            foreach (var id in EnumerableHelper.ForEachIntEnumerable(width, height, depth))
-            {
-                points[id] = (id.y != 0 && UnityEngine.Random.Range(0, 1000) < 500) ? 0 : 1;
-            }
+        onSizeChange -= OnBlockSizeChange;
+        // onCellChange -= OnBlockCellChange;
+        onRefresh -= OnBlockCellRefresh;
+    }
 
-            ReCreate();
+    public void ChangeBlockValue(Vector3Int id, int newValue)
+    {
+        if (newValue != points[id])
+        {
+            points[id] = newValue;
+
+            onCellChange?.Invoke(indexFromCoord(id.x, id.y, id.z), newValue);
+
+            onRefresh?.Invoke();
         }
     }
 
-    void ReCreate()
+    void OnBlockSizeChange(int width, int height, int depth)
     {
+        // rebuild data model
+        points = new BitCube(width, height, depth);
+
+        // rebuild block cells
         foreach (Transform child in this.transform)
         {
-            child.gameObject.SetActive(false);            
+            Destroy(child.gameObject);
         }
-        
+        this.transform.DetachChildren();
+
+        foreach (var id in EnumerableHelper.ForEachIntEnumerable(width + 1, height + 1, depth + 1))
+        {
+            var newObj = Instantiate(blockCell);
+            // TODO : replace with relative transform ,eg. basement offset
+            newObj.transform.position = new Vector3(id.x, id.y - 1/* yPos*/, id.z);
+            newObj.transform.parent = this.transform;
+            newObj.gameObject.SetActive(false);
+        }
+    }
+
+    void OnBlockCellRefresh()
+    {
         foreach (var id in EnumerableHelper.ForEachIntEnumerable(width + 1, height + 1, depth + 1))
         {
             int cubeIndex = points.CalculateIsoSurface(id);
@@ -104,6 +124,28 @@ public class BitBlockBuilder : MonoBehaviour
             .ToList()
             .Count(child => child.gameObject.activeInHierarchy);
 
-        this.gameObject.name = string.Format($"{objectName}({this.transform.childCount})({visibleCount})");
+        this.gameObject.name = string.Format($"{objectName}({visibleCount}/{this.transform.childCount})");
+    }
+
+    void ReCreate()
+    {
+        width = blockWidth;
+        height = blockHeight;
+        depth = blockDepth;
+        
+        if (points.Length != width * height * depth)
+        {
+            onSizeChange?.Invoke(width, height, depth);
+        }
+
+        // TODO : replcae randomized data sets with generate event
+        foreach (var id in EnumerableHelper.ForEachIntEnumerable(width, height, depth))
+        {
+            points[id] = (id.y != 0 && UnityEngine.Random.Range(0, 1000) < 500) ? 0 : 1;
+        }
+
+        onDataChange?.Invoke(width, height, depth, in points);
+
+        onRefresh?.Invoke();        
     }
 }

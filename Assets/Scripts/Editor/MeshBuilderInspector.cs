@@ -125,7 +125,7 @@ public class MeshBuilderInspector : Editor
                 GameObject variant = new GameObject($"{bvalue}", new Type[] { typeof(MeshFilter), typeof(MeshRenderer) });
                 variant.transform.SetParent(cs.transform);
 
-                variant.GetComponent<MeshFilter>().sharedMesh = MeshBuilderCommandLineTool.CombineMesh(newMesh.transform);
+                variant.GetComponent<MeshFilter>().sharedMesh = MeshBuilderCommandLine.CombineMesh(newMesh.transform);
                 // variant.GetComponent<MeshRenderer>().sharedMaterial = materialRef; 
                 
                 DestroyImmediate(newMesh);

@@ -7,42 +7,42 @@ using UnityEngine;
 using UnityEditor;
 using System.IO;
 
-public class MeshBuilderCommandLineTool
+public class MeshBuilderCommandLine
 {
     const string OutputPath = "Assets/Outputs/";
 
-    // [MenuItem("MeshBuilder/Combine Mesh")]
-    static void CombineMesh()
+    /// <summary>
+    /// To combine all children of the select transform to a mesh.
+    /// </summary>
+    [MenuItem("Tools/Create CombineMesh")]
+    static void CreateCombineMesh()
     {
-        var selection = Selection.activeObject;
-        if (selection is GameObject)
+        var selection = (Selection.activeObject as GameObject).transform;
+        if (selection && selection.childCount > 0)
         {
-            var combineMesh = CombineMesh((selection as GameObject).transform);
+            var combineMesh = CombineMesh(selection);
 
-            if (!AssetDatabase.IsValidFolder(OutputPath)) Directory.CreateDirectory(OutputPath);
-
-            AssetDatabase.DeleteAsset($"{selection.name}");
-            AssetDatabase.Refresh();
-
-            string outputPath = $"{OutputPath}{selection.name}.asset";
-            AssetDatabase.CreateAsset(combineMesh, outputPath);
+            WriteMeshAsAsset(combineMesh, selection.name);
         }
     }
-
-    // [MenuItem("MeshBuilder/Create Mesh")]
-    static void CreateMesh()
+    
+    /// <summary>
+    /// To create a unit right triangle.
+    ///  v4 __  
+    ///    |\ \__
+    ///    | v3__\_ v2
+    ///  v7\ |  v6 |
+    ///     \|___\_| 
+    ///      v0     v1    
+    /// </summary>
+    [MenuItem("Tools/Create TriangleMesh")]
+    static void CreateTriangleMesh()
     {       
         Vector3[] vertices;
         Vector2[] uv;
         int[] indices;
 
-        /*  v4 ______ v5       v4 __  
-         *    |\    |\           |\ \__  
-         *    |v3___|_\ v2       | v3__\_ v2
-         *  v7\ |  v6 |        v7\ |  v6 |
-         *     \|____\|           \|___\_| 
-         *     v0       v1        v0      v1
-         */
+        
         var v = new Vector3[] {
                    new Vector3 (-0.5f, -0.5f, -0.5f),
                    new Vector3 (+0.5f, -0.5f, -0.5f),
@@ -101,29 +101,31 @@ public class MeshBuilderCommandLineTool
         mesh.Optimize();
 
         if (!AssetDatabase.IsValidFolder(OutputPath)) Directory.CreateDirectory(OutputPath);
-
-        string name = "triangle";
-        AssetDatabase.DeleteAsset($"{name}");
-        AssetDatabase.Refresh();
-
-        string outputPath = $"{OutputPath}{name}.asset";
-        AssetDatabase.CreateAsset(mesh, outputPath);
+        
+        WriteMeshAsAsset(mesh, "right-triangle");        
     }
 
-    // [MenuItem("MeshBuilder/Create Side Cube")]
-    static void CreateSideCube()
+    /// <summary>
+    /// To create a non combined vertex index cube, and
+    /// each face uses non-overlapping texcoords.
+    /// 
+    /// uv0 : uvmap with non-overlapping texcoords.
+    /// uv1 : integer as face ID [1, 6]
+    /// 
+    ///  v4 ______ v5     
+    ///    |\    |\       
+    ///    |v3___|_\ v2   
+    ///  v7\ |  v6 |      
+    ///     \|____\|      
+    ///     v0       v1       
+    /// </summary>
+    [MenuItem("Tools/Create Non-Combine Cube")]
+    static void CreateNonCombineCube()
     {
         Vector3[] vertices;
-        Vector2[] uv, uv2;
+        Vector2[] uv0, uv1;
         int[] indices;
-
-        /*  v4 ______ v5     
-         *    |\    |\       
-         *    |v3___|_\ v2   
-         *  v7\ |  v6 |      
-         *     \|____\|      
-         *     v0       v1   
-         */
+        
         var v = new Vector3[] {
             new Vector3 (-0.5f, -0.5f, -0.5f),
             new Vector3 (+0.5f, -0.5f, -0.5f),
@@ -159,7 +161,7 @@ public class MeshBuilderCommandLineTool
             new Vector2(1, 0.5f),      new Vector2(0.666f, 0.5f), new Vector2(0.666f, 1),    new Vector2(1, 1)           // Bottom
         };
 
-        uv = new Vector2[] {
+        uv0 = new Vector2[] {
             uv_[0],  uv_[2],  uv_[1],  //face front
 	        uv_[0],  uv_[3],  uv_[2],
             uv_[4],  uv_[5],  uv_[6],  //face top
@@ -173,7 +175,8 @@ public class MeshBuilderCommandLineTool
             uv_[20], uv_[22], uv_[23], //face bottom	 
             uv_[20], uv_[21], uv_[22]
         };
-        var uv2_ = new Vector2[] {
+
+        var uv1_ = new Vector2[] {
             new Vector2(1,1),
             new Vector2(2,2),
             new Vector2(3,3),
@@ -182,13 +185,13 @@ public class MeshBuilderCommandLineTool
             new Vector2(6,6)
         };
 
-        uv2 = new Vector2[] {
-            uv2_[0],  uv2_[0],  uv2_[0],  uv2_[0], uv2_[0],  uv2_[0],  //face front
-	        uv2_[1],  uv2_[1],  uv2_[1],  uv2_[1], uv2_[1],  uv2_[1],  //face top
-            uv2_[2],  uv2_[2],  uv2_[2],  uv2_[2], uv2_[2],  uv2_[2],  //face right
-            uv2_[3],  uv2_[3],  uv2_[3],  uv2_[3], uv2_[3],  uv2_[3],  //face left
-            uv2_[4],  uv2_[4],  uv2_[4],  uv2_[4], uv2_[4],  uv2_[4],  //face back
-            uv2_[5],  uv2_[5],  uv2_[5],  uv2_[5], uv2_[5],  uv2_[5]   //face bottom          
+        uv1 = new Vector2[] {
+            uv1_[0],  uv1_[0],  uv1_[0],  uv1_[0], uv1_[0],  uv1_[0],  //face front
+	        uv1_[1],  uv1_[1],  uv1_[1],  uv1_[1], uv1_[1],  uv1_[1],  //face top
+            uv1_[2],  uv1_[2],  uv1_[2],  uv1_[2], uv1_[2],  uv1_[2],  //face right
+            uv1_[3],  uv1_[3],  uv1_[3],  uv1_[3], uv1_[3],  uv1_[3],  //face left
+            uv1_[4],  uv1_[4],  uv1_[4],  uv1_[4], uv1_[4],  uv1_[4],  //face back
+            uv1_[5],  uv1_[5],  uv1_[5],  uv1_[5], uv1_[5],  uv1_[5]   //face bottom          
         };
 
         indices = new int[] {
@@ -208,24 +211,19 @@ public class MeshBuilderCommandLineTool
 
         var mesh = new Mesh();
         mesh.vertices = vertices;
-        mesh.uv = uv;
-        mesh.uv2 = uv2;
+        mesh.uv = uv0;
+        mesh.uv2 = uv1;
         mesh.SetIndices(indices, MeshTopology.Triangles, 0);
         mesh.RecalculateNormals();
         mesh.RecalculateTangents();
         mesh.Optimize();
 
-        if (!AssetDatabase.IsValidFolder(OutputPath)) Directory.CreateDirectory(OutputPath);
-
-        string name = "sidecube";
-        AssetDatabase.DeleteAsset($"{name}");
-        AssetDatabase.Refresh();
-
-        string outputPath = $"{OutputPath}{name}.asset";
-        AssetDatabase.CreateAsset(mesh, outputPath);
+        WriteMeshAsAsset(mesh, "cube-non-combine");        
     }
-
-    // TODO : combine meshes with same name, eg. "wall", "ground", "roof"     
+    
+    /// Internal method
+        
+    /// TODO : build combine rules, eg. meshes with same name such like "wall", "ground", "roof"
     public static Mesh CombineMesh(Transform t)
     {
         // Combine meshes
@@ -244,4 +242,14 @@ public class MeshBuilderCommandLineTool
         return combineMesh;
     }
 
+    public static void WriteMeshAsAsset(Mesh mesh, string name)
+    {
+        if (!AssetDatabase.IsValidFolder(OutputPath)) Directory.CreateDirectory(OutputPath);
+
+        AssetDatabase.DeleteAsset($"{name}");
+        AssetDatabase.Refresh();
+
+        string outputPath = $"{OutputPath}{name}.asset";
+        AssetDatabase.CreateAsset(mesh, outputPath);
+    }        
 }
