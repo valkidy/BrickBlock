@@ -7,7 +7,7 @@ using UnityEngine;
 [RequireComponent(typeof(BitBlockBuilder))]
 public class BitBlockSelector : MonoBehaviour
 {
-    [SerializeField] GameObject selectionPrefab;
+    public GameObject selectionPrefab;
 
     LayerMask layerMask = 1 << 0;
     
@@ -15,33 +15,42 @@ public class BitBlockSelector : MonoBehaviour
     BitBlockBuilder builder;
     Transform placeHolder;
 
+    Vector3Int size; 
     Bounds bounds = new Bounds();
+
     Ray ray;
 
     // Start is called before the first frame update
     void Start()
-    {
-        builder = GetComponent<BitBlockBuilder>();
+    {        
         cursor = new BoxCursor(selectionPrefab);
         placeHolder = new GameObject("PlaceHolder").transform;
-        
-        builder.onSizeChange += OnSizeChange;
-        builder.onDataChange += OnUpdateAllCollider;
-        builder.onCellChange += OnUpdateCollider;
 
+        builder = GetComponent<BitBlockBuilder>();
+        if (builder)
+        {
+            builder.onSizeChange += OnSizeChange;
+            builder.onDataChange += OnUpdateAllCollider;
+            builder.onCellChange += OnUpdateCollider;
+        }
     }
 
     void OnDestroy()
     {
-        builder.onSizeChange -= OnSizeChange;
-        builder.onDataChange += OnUpdateAllCollider;
-        builder.onCellChange -= OnUpdateCollider;
+        if (builder)
+        {
+            builder.onSizeChange -= OnSizeChange;
+            builder.onDataChange -= OnUpdateAllCollider;
+            builder.onCellChange -= OnUpdateCollider;
+        }
 
         Destroy(GameObject.Find("PlaceHolder"));
     }
 
     void OnSizeChange(int width, int height, int depth)
     {
+        size = new Vector3Int(width, height, depth);
+
         foreach (Transform child in placeHolder)
         {
             Destroy(child.gameObject);
@@ -58,16 +67,16 @@ public class BitBlockSelector : MonoBehaviour
         bounds.SetMinMax(Vector3.zero, new Vector3(width - 1, height - 1, depth - 1));
     }
 
-    void OnUpdateCollider(int id, int bitValue)
+    void OnUpdateCollider(Vector3Int id, int oldValue, int newValue)
     {
-        placeHolder.GetChild(id).gameObject.SetActive(bitValue > 0);
+        placeHolder.GetChild(id.z + size.z * (id.x + size.x * id.y)).gameObject.SetActive(newValue > 0);
     }
 
-    void OnUpdateAllCollider(int width, int height, int depth, in BitCube points)
+    void OnUpdateAllCollider(in BitCube points)
     {        
-        foreach (var id in EnumerableHelper.ForEachIntEnumerable(width, height, depth))
-        {
-            OnUpdateCollider(id.z + depth * (id.x + width * id.y), points[id]);
+        foreach (var id in EnumerableHelper.ForEachIntEnumerable(size.x, size.y, size.z))
+        {            
+            OnUpdateCollider(id, points[id], points[id]);
         }
     }
 
@@ -96,7 +105,7 @@ public class BitBlockSelector : MonoBehaviour
                 (var id, var bitValue) = chunkInfo;
                 if (bounds.Contains(id))
                 {
-                    builder.ChangeBlockValue(id, bitValue);
+                    builder?.ChangeBlockValue(id, bitValue);
                 }
 
                 /// avoid UnityTemplateProjects.SimpleCameraController to lock mouse cursor.

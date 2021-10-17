@@ -15,8 +15,8 @@ public class BitBlockBuilder : MonoBehaviour
     [SerializeField] GameObject blockCell = null;
     
     public delegate void OnSizeChangeDelegate(int width, int height, int depth);    
-    public delegate void OnCellChangeDelegate(int id, int bitValue);
-    public delegate void OnDataChangeDelegate(int width, int height, int depth, in BitCube points);
+    public delegate void OnCellChangeDelegate(Vector3Int id, int oldValue, int newValue);
+    public delegate void OnDataChangeDelegate(in BitCube points);
     public delegate void OnRefreshDelegate();
 
     public event OnSizeChangeDelegate onSizeChange;
@@ -60,7 +60,7 @@ public class BitBlockBuilder : MonoBehaviour
         }
 
         onSizeChange += OnBlockSizeChange;
-        // onCellChange += OnBlockCellChange;
+        onCellChange += OnBlockCellChange;
         onRefresh += OnBlockCellRefresh;
 
         ReCreate();
@@ -69,17 +69,17 @@ public class BitBlockBuilder : MonoBehaviour
     void OnDestroy()
     {
         onSizeChange -= OnBlockSizeChange;
-        // onCellChange -= OnBlockCellChange;
+        onCellChange -= OnBlockCellChange;
         onRefresh -= OnBlockCellRefresh;
     }
 
     public void ChangeBlockValue(Vector3Int id, int newValue)
     {
         if (newValue != points[id])
-        {
-            points[id] = newValue;
+        {            
+            onCellChange?.Invoke(id, points[id], newValue);
 
-            onCellChange?.Invoke(indexFromCoord(id.x, id.y, id.z), newValue);
+            points[id] = newValue;
 
             onRefresh?.Invoke();
         }
@@ -104,6 +104,17 @@ public class BitBlockBuilder : MonoBehaviour
             newObj.transform.position = new Vector3(id.x, id.y - 1/* yPos*/, id.z);
             newObj.transform.parent = this.transform;
             newObj.gameObject.SetActive(false);
+        }
+    }
+
+    void OnBlockCellChange(Vector3Int id, int oldValue, int newValue)
+    {
+        Debug.Log($"OnBlockCellChange : {oldValue} => {newValue}");
+        
+        var childObj = this.transform.GetChild(childIndexFromCoord(id.x, id.y, id.z));
+        if (childObj)
+        {
+
         }
     }
 
@@ -144,7 +155,7 @@ public class BitBlockBuilder : MonoBehaviour
             points[id] = (id.y != 0 && UnityEngine.Random.Range(0, 1000) < 500) ? 0 : 1;
         }
 
-        onDataChange?.Invoke(width, height, depth, in points);
+        onDataChange?.Invoke(in points);
 
         onRefresh?.Invoke();        
     }
